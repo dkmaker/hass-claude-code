@@ -27,7 +27,7 @@ if command -v bashio &>/dev/null; then
     fi
 
     model=$(bashio::config 'model' 2>/dev/null || true)
-    if [[ -n "${model}" ]]; then
+    if [[ -n "${model}" && "${model}" != "default" ]]; then
         CLAUDE_ARGS+=(--model "${model}")
     fi
 fi

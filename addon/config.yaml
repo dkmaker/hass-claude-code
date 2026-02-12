@@ -24,13 +24,13 @@ map:
   - media:ro
 options:
   api_key: ""
-  model: ""
+  model: "default"
   yolo_mode: false
   enable_embeddings: false
   additional_packages: []
 schema:
   api_key: password
-  model: str?
+  model: "list(default|claude-opus-4-6|claude-sonnet-4-5-20250929|claude-haiku-4-5-20251001)"
   yolo_mode: bool
   enable_embeddings: bool
   additional_packages:
