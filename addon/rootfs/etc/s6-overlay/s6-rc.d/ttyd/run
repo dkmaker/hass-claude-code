@@ -16,8 +16,8 @@ else
     options+=(-d1)
 fi
 
-# Listen on Supervisor interface only
-options+=(-i hassio)
+# Listen on all interfaces (Supervisor Ingress proxies to this container)
+options+=(-i 0.0.0.0)
 
 # Enable terminal input
 options+=(--writable)

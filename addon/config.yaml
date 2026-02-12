@@ -1,6 +1,6 @@
 ---
 name: Claude Code
-version: 0.1.1
+version: 0.1.2
 slug: claude_code
 description: AI coding assistant with full Home Assistant access
 startup: services

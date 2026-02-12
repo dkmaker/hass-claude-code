@@ -1,3 +1,9 @@
+## 0.1.2
+
+### Bug fixes
+
+- Fix 502 Bad Gateway on Ingress: bind ttyd to 0.0.0.0 instead of `hassio` interface (which only exists with `host_network: true`)
+
 ## 0.1.1
 
 ### Bug fixes
