@@ -1,6 +1,9 @@
 # Build context: addon/ directory
 # HA Supervisor uses the config.yaml directory as build context.
 
+# Global ARG — must be before any FROM to be visible across stages
+ARG BUILD_FROM=ghcr.io/hassio-addons/base:20.0.1
+
 # Stage 1: Build MCP server and pre-index docs
 FROM node:22-alpine AS mcp-builder
 
@@ -31,7 +34,6 @@ RUN cd mcp-server && \
     node --import tsx src/build-index.ts
 
 # Stage 2: Final add-on image
-ARG BUILD_FROM=ghcr.io/hassio-addons/base:20.0.1
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
