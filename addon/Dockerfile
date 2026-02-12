@@ -41,9 +41,6 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV TERM="xterm-256color"
 
-# Claude Code version — bump this to update
-ARG CLAUDE_CODE_VERSION="latest"
-
 # Install system packages
 # hadolint ignore=DL3018
 RUN apk add --no-cache \
@@ -59,12 +56,12 @@ RUN apk add --no-cache \
     tmux \
     ttyd
 
-# Install Claude Code globally
-RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \
-    && rm -rf /root/.npm /tmp/*
+# Install Claude Code via official binary installer
+RUN curl -fsSL https://claude.ai/install.sh | bash
 
-# Disable Claude Code auto-updater
-ENV DISABLE_AUTOUPDATER=1
+# Add Claude Code to PATH and disable auto-updater
+ENV PATH="/root/.local/bin:${PATH}" \
+    DISABLE_AUTOUPDATER=1
 
 # Copy MCP server from builder (source + deps + pre-built DB)
 COPY --from=mcp-builder /build/mcp-server /opt/mcp-server

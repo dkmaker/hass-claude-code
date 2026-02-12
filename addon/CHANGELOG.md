@@ -1,3 +1,10 @@
+## 0.1.4
+
+### Bug fixes
+
+- Fix MCP server not loading: use `/etc/claude-code/managed-mcp.json` (system-wide) instead of `.mcp.json` in home dir which Claude Code doesn't find when working dir differs
+- Switch to official Claude Code binary installer (`curl -fsSL https://claude.ai/install.sh | bash`) instead of npm
+
 ## 0.1.3
 
 ### Improvements

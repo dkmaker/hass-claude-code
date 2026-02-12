@@ -51,18 +51,20 @@ ln -sf /data/.claude /root/.claude
 touch /data/.bash_history
 ln -sf /data/.bash_history /root/.bash_history
 
-# --- Generate .mcp.json for Claude Code ---
+# --- Generate managed MCP config (system-wide, always loaded) ---
 bashio::log.info 'Generating MCP server configuration...'
 
-cat > /root/.mcp.json << 'MCPEOF'
+mkdir -p /etc/claude-code
+
+cat > /etc/claude-code/managed-mcp.json << MCPEOF
 {
   "mcpServers": {
     "home-assistant": {
       "command": "node",
       "args": ["--import", "tsx", "/opt/mcp-server/src/index.ts"],
       "env": {
-        "SUPERVISOR_TOKEN": "__SUPERVISOR_TOKEN__",
-        "ENABLE_EMBEDDINGS": "__ENABLE_EMBEDDINGS__",
+        "SUPERVISOR_TOKEN": "${SUPERVISOR_TOKEN}",
+        "ENABLE_EMBEDDINGS": "${enable_embeddings}",
         "DOCS_DB_PATH": "/opt/mcp-server/data/docs-search.db",
         "DOCS_PATH": "/opt/docs",
         "MODELS_DIR": "/data/models"
@@ -71,10 +73,6 @@ cat > /root/.mcp.json << 'MCPEOF'
   }
 }
 MCPEOF
-
-# Replace placeholders with actual values
-sed -i "s|__SUPERVISOR_TOKEN__|${SUPERVISOR_TOKEN}|g" /root/.mcp.json
-sed -i "s|__ENABLE_EMBEDDINGS__|${enable_embeddings}|g" /root/.mcp.json
 
 # --- Generate default CLAUDE.md in /homeassistant/ if absent ---
 if [[ ! -f /homeassistant/CLAUDE.md ]]; then
