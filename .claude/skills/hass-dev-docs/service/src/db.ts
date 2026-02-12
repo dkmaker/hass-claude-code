@@ -32,11 +32,12 @@ export function initDb(): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS files (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      file_path TEXT NOT NULL UNIQUE,
+      file_path TEXT NOT NULL,
       doc_set TEXT NOT NULL DEFAULT 'hass-developer',
       content_hash TEXT NOT NULL,
       title TEXT,
-      last_indexed_at TEXT NOT NULL DEFAULT (datetime('now'))
+      last_indexed_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(doc_set, file_path)
     );
 
     CREATE TABLE IF NOT EXISTS chunks (

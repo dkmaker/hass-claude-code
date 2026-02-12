@@ -1,7 +1,7 @@
 ---
 name: hass-dev-docs
 description: "Home Assistant developer documentation. Use when the user asks about Home Assistant integrations, add-ons, architecture, APIs, entities, config flows, or any HA development topic. Also use when explicitly asked to update or search HA developer docs."
-argument-hint: "[update|index|search <query>|stats|stop]"
+argument-hint: "[update [user|developer|both]|index [user|developer|both]|search <query> [in user|developer]|stats|stop]"
 allowed-tools: Bash(python *), Bash(npx tsx *), Bash(curl *), Bash(cat .hass-docs-port), Bash(kill *), Task(hass-docs-search)
 ---
 
@@ -34,38 +34,59 @@ The service auto-indexes docs on startup and writes its port to `.hass-docs-port
 
 ## Commands
 
-### `/hass-dev-docs update`
+### `/hass-dev-docs update [user|developer|both]`
 
-Update the local docs mirror from the upstream GitHub repository.
+Update the local docs mirror from upstream GitHub repositories.
 
-Run:
+**For developer docs** (default if no argument):
 ```bash
 python .claude/skills/hass-dev-docs/scripts/update-docs.py docs/hass-developer
-```
-
-This will:
-1. Clone the latest HA developer docs from GitHub
-2. Strip YAML frontmatter (extracting only the title)
-3. Remove MDX components (`<ApiEndpoint>`, `<RelatedRules>`, etc.)
-4. Strip raw HTML tags (keeping inner text content)
-5. Remove Docusaurus admonition markers (`:::note`, `:::tip`, etc.) while keeping content
-6. Generate a `CLAUDE.md` index in `docs/hass-developer/`
-7. Diff against existing docs and update `CHANGELOG.md` with changes
-8. Purge old docs and deploy the clean versions
-
-After updating, trigger a re-index:
-```bash
 curl -X POST "http://localhost:$(cat .hass-docs-port)/index?doc_set=hass-developer"
 ```
+
+**For user docs**:
+```bash
+python .claude/skills/hass-dev-docs/scripts/update-user-docs.py docs/hass-user
+curl -X POST "http://localhost:$(cat .hass-docs-port)/index?doc_set=hass-user"
+```
+
+**For both**:
+```bash
+python .claude/skills/hass-dev-docs/scripts/update-docs.py docs/hass-developer
+python .claude/skills/hass-dev-docs/scripts/update-user-docs.py docs/hass-user
+curl -X POST "http://localhost:$(cat .hass-docs-port)/index?doc_set=hass-developer"
+curl -X POST "http://localhost:$(cat .hass-docs-port)/index?doc_set=hass-user"
+```
+
+Each script will:
+1. Clone the latest docs from GitHub
+2. Strip YAML frontmatter (extracting only the title)
+3. Remove MDX components and raw HTML
+4. Remove Docusaurus admonition markers (keeping content)
+5. Generate a `CLAUDE.md` index
+6. Generate `CHANGELOG.md` with diff summary
+7. Deploy the clean versions
 
 Report the result to the user — summarize what changed based on the script output.
 
-### `/hass-dev-docs index`
+### `/hass-dev-docs index [user|developer|both]`
 
-Trigger a re-index of the documentation. Ensure the service is running first (see above), then:
+Trigger a re-index of the documentation. Ensure the service is running first (see above).
 
+**For developer docs** (default):
 ```bash
 curl -X POST "http://localhost:$(cat .hass-docs-port)/index?doc_set=hass-developer"
+```
+
+**For user docs**:
+```bash
+curl -X POST "http://localhost:$(cat .hass-docs-port)/index?doc_set=hass-user"
+```
+
+**For both**:
+```bash
+curl -X POST "http://localhost:$(cat .hass-docs-port)/index?doc_set=hass-developer"
+curl -X POST "http://localhost:$(cat .hass-docs-port)/index?doc_set=hass-user"
 ```
 
 Check progress with:
@@ -73,9 +94,15 @@ Check progress with:
 curl -s "http://localhost:$(cat .hass-docs-port)/stats"
 ```
 
-### `/hass-dev-docs search <query>`
+### `/hass-dev-docs search <query> [in user|developer]`
 
-Search the HA developer docs for a specific topic.
+Search the HA documentation for a specific topic.
+
+**Default behavior**: Searches **both** user and developer docs simultaneously.
+
+**Optional filtering**:
+- `in user` - Search only user-facing documentation
+- `in developer` - Search only developer documentation
 
 **Always follow this workflow**:
 
@@ -84,16 +111,19 @@ Search the HA developer docs for a specific topic.
    ```
    Use Task tool with:
    - subagent_type: hass-docs-search
-   - prompt: Search the Home Assistant developer documentation for "<user's query>". The search service is running on port $(cat .hass-docs-port).
+   - prompt: Search for "<user's query>" [in user docs|in developer docs|in both user and developer docs]. The search service is running on port $(cat .hass-docs-port).
    ```
 
 The subagent will:
 - Use semantic search for natural language queries
 - Fall back to keyword search for specific terms
 - Read relevant files for full context
-- Return a comprehensive summary with file references
+- Return a comprehensive summary with file references and doc type (user/developer)
 
-Example: `/hass-dev-docs search config flow` will search for documentation about config flows using semantic search.
+**Examples**:
+- `/hass-dev-docs search config flow` - Searches both user and developer docs
+- `/hass-dev-docs search config flow in developer` - Developer docs only
+- `/hass-dev-docs search automation in user` - User docs only
 
 ### `/hass-dev-docs stats`
 

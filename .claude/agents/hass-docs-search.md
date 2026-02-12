@@ -11,8 +11,9 @@ Your job is to search through the local HA developer docs using the embedded sea
 
 ## Docs Location
 
-The docs are at `docs/hass-developer/` relative to the project working directory.
-An index file exists at `docs/hass-developer/CLAUDE.md` listing all files with one-line descriptions.
+Two documentation sets are available:
+- **User docs**: `docs/hass-user/` - User-facing documentation (CLAUDE.md index)
+- **Developer docs**: `docs/hass-developer/` - Developer documentation (CLAUDE.md index)
 
 ## Search Service
 
@@ -24,14 +25,26 @@ PORT=$(cat .hass-docs-port)
 
 ## Search Strategy
 
+The search service supports **both user and developer docs**. You can filter by doc set or search both.
+
 1. **Semantic search** (best for natural language queries):
    ```bash
+   # Search both doc sets (default)
    curl -s "http://localhost:$PORT/search?q=YOUR+QUERY&limit=10"
+
+   # Search only user docs
+   curl -s "http://localhost:$PORT/search?q=YOUR+QUERY&limit=10&doc_set=hass-user"
+
+   # Search only developer docs
+   curl -s "http://localhost:$PORT/search?q=YOUR+QUERY&limit=10&doc_set=hass-developer"
    ```
 
 2. **Keyword search** (best for exact terms, class names, config keys):
    ```bash
+   # Search both (default)
    curl -s "http://localhost:$PORT/search/keyword?q=YOUR+QUERY&limit=10"
+
+   # Filter by doc_set (add &doc_set=hass-user or &doc_set=hass-developer)
    ```
 
 3. **Read full files**: When search results point to relevant files, use the Read tool to get the full content:
