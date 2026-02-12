@@ -1,0 +1,116 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Claude Code Add-on: Environment setup
+# Sets up API key, CLAUDE.md, .mcp.json, persistent storage
+# ==============================================================================
+declare api_key
+declare model
+declare yolo_mode
+declare enable_embeddings
+
+bashio::log.info 'Setting up Claude Code environment...'
+
+# --- Read config ---
+api_key=$(bashio::config 'api_key')
+model=$(bashio::config 'model')
+yolo_mode=$(bashio::config 'yolo_mode')
+enable_embeddings=$(bashio::config 'enable_embeddings')
+
+# Validate API key
+if ! bashio::var.has_value "${api_key}"; then
+    bashio::log.fatal
+    bashio::log.fatal 'No API key configured!'
+    bashio::log.fatal 'Please set your Anthropic API key in the add-on configuration.'
+    bashio::log.fatal
+    bashio::exit.nok
+fi
+
+# --- Set environment variables for all services (s6 convention: one file per var) ---
+printf '%s' "${api_key}" > /var/run/s6/container_environment/ANTHROPIC_API_KEY
+printf '%s' "${enable_embeddings}" > /var/run/s6/container_environment/ENABLE_EMBEDDINGS
+printf '%s' "/opt/mcp-server/data/docs-search.db" > /var/run/s6/container_environment/DOCS_DB_PATH
+printf '%s' "/opt/docs" > /var/run/s6/container_environment/DOCS_PATH
+printf '%s' "/data/models" > /var/run/s6/container_environment/MODELS_DIR
+
+# Also write to /etc/profile.d/ so the shell sees them
+{
+    echo "export ANTHROPIC_API_KEY=\"${api_key}\""
+    echo "export SUPERVISOR_TOKEN=\"${SUPERVISOR_TOKEN}\""
+    echo "export DISABLE_AUTOUPDATER=1"
+} > /etc/profile.d/claude.sh
+
+# --- Persistent storage ---
+if ! bashio::fs.directory_exists '/data/.claude'; then
+    mkdir -p /data/.claude \
+        || bashio::exit.nok 'Failed to create persistent .claude directory'
+fi
+ln -sf /data/.claude /root/.claude
+
+# Persistent bash history
+touch /data/.bash_history
+ln -sf /data/.bash_history /root/.bash_history
+
+# --- Generate .mcp.json for Claude Code ---
+bashio::log.info 'Generating MCP server configuration...'
+
+cat > /root/.mcp.json << 'MCPEOF'
+{
+  "mcpServers": {
+    "home-assistant": {
+      "command": "node",
+      "args": ["--import", "tsx", "/opt/mcp-server/src/index.ts"],
+      "env": {
+        "SUPERVISOR_TOKEN": "__SUPERVISOR_TOKEN__",
+        "ENABLE_EMBEDDINGS": "__ENABLE_EMBEDDINGS__",
+        "DOCS_DB_PATH": "/opt/mcp-server/data/docs-search.db",
+        "DOCS_PATH": "/opt/docs",
+        "MODELS_DIR": "/data/models"
+      }
+    }
+  }
+}
+MCPEOF
+
+# Replace placeholders with actual values
+sed -i "s|__SUPERVISOR_TOKEN__|${SUPERVISOR_TOKEN}|g" /root/.mcp.json
+sed -i "s|__ENABLE_EMBEDDINGS__|${enable_embeddings}|g" /root/.mcp.json
+
+# --- Generate default CLAUDE.md in /homeassistant/ if absent ---
+if [[ ! -f /homeassistant/CLAUDE.md ]]; then
+    bashio::log.info 'Creating default CLAUDE.md in Home Assistant config...'
+    cat > /homeassistant/CLAUDE.md << 'EOF'
+# Home Assistant Development Environment
+
+You are working inside a Home Assistant instance with full API access.
+
+## Available MCP Tools
+
+The `home-assistant` MCP server provides these tools:
+- `search_entities` - Search entities by name, domain, or area
+- `get_entity_state` - Get state and attributes of an entity
+- `call_service` - Call any HA service (turn on lights, trigger automations, etc.)
+- `search_automations` - Search automation entities
+- `get_ha_config` - Get HA core configuration
+- `list_areas` - List all defined areas
+- `search_devices` - Search device registry
+- `get_config_entries` - List integration config entries
+- `search_docs` - Search HA developer and user documentation
+- `read_doc` - Read a specific documentation file
+- `get_doc_stats` - Get documentation index statistics
+
+## File Locations
+
+- `/homeassistant/` - Home Assistant configuration directory
+- `/homeassistant/.storage/` - Internal registry and state data
+- `/share/` - Shared storage between add-ons
+- `/ssl/` - SSL certificates (read-only)
+- `/media/` - Media files (read-only)
+EOF
+fi
+
+# --- Symlink convenient paths ---
+ln -sf /homeassistant /root/homeassistant
+ln -sf /share /root/share
+
+bashio::log.info 'Claude Code environment ready.'

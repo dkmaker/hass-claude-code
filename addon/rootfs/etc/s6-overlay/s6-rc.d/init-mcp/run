@@ -1,0 +1,21 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Claude Code Add-on: Optional embedding model download
+# ==============================================================================
+declare enable_embeddings
+
+enable_embeddings=$(bashio::config 'enable_embeddings')
+
+if bashio::config.true 'enable_embeddings'; then
+    bashio::log.info 'Embeddings enabled — downloading model (this may take a moment)...'
+
+    ENABLE_EMBEDDINGS=true \
+    MODELS_DIR=/data/models \
+    node --import tsx /opt/mcp-server/src/warmup-model.ts \
+        || bashio::log.warning 'Embedding model download failed. Keyword search will still work.'
+
+    bashio::log.info 'Embedding model ready.'
+else
+    bashio::log.info 'Embeddings disabled — using keyword-only search.'
+fi

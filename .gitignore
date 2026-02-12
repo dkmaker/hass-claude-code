@@ -6,5 +6,10 @@
 .hass-docs-port
 .hass-docs-pid
 
+# Addon MCP server runtime data
+addon/mcp-server/node_modules/
+addon/mcp-server/data/
+addon/mcp-server/pnpm-lock.yaml
+
 # Cloned resources (can be re-downloaded)
 resources/
