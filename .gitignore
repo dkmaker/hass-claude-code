@@ -1,5 +1,9 @@
 # Docs search service runtime data
 .claude/skills/hass-dev-docs/service/data/
 .claude/skills/hass-dev-docs/service/node_modules/
+.claude/skills/hass-dev-docs/service/package-lock.json
 .hass-docs-port
 .hass-docs-pid
+
+# Cloned resources (can be re-downloaded)
+resources/
