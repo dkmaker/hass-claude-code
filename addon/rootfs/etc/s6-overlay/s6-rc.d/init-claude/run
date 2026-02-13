@@ -79,7 +79,18 @@ if bashio::config.true 'yolo_mode'; then
       "SendMessage",
       "TeamCreate",
       "TeamDelete",
-      "AskUserQuestion"
+      "AskUserQuestion",
+      "mcp__home-assistant__search_entities",
+      "mcp__home-assistant__get_entity_state",
+      "mcp__home-assistant__call_service",
+      "mcp__home-assistant__search_automations",
+      "mcp__home-assistant__get_ha_config",
+      "mcp__home-assistant__list_areas",
+      "mcp__home-assistant__search_devices",
+      "mcp__home-assistant__get_config_entries",
+      "mcp__home-assistant__search_docs",
+      "mcp__home-assistant__read_doc",
+      "mcp__home-assistant__get_doc_stats"
     ],
     "deny": []
   },

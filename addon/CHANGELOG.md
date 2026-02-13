@@ -1,3 +1,17 @@
+## 0.1.11
+
+### Improvements
+
+- Trim MCP tool responses to return only essential fields instead of full objects
+  - `search_entities`: returns entity_id, state, name, area (use `get_entity_state` for full attributes)
+  - `search_automations`: returns entity_id, state, name, last_triggered
+  - `search_devices`: returns id, name, area_id, manufacturer, model
+  - `list_areas`: returns area_id, name, floor_id
+  - `get_config_entries`: returns entry_id, domain, title, state
+  - `call_service`: returns success message instead of full response objects
+  - `get_ha_config`: returns only useful config fields instead of entire object
+- Add all MCP tools to yolo mode allow list
+
 ## 0.1.10
 
 ### Bug fixes
