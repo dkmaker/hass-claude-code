@@ -1,4 +1,7 @@
-# Claude Code for Home Assistant
+# Gemini CLI for Home Assistant
+
+This is a fork of [https://github.com/dkmaker/hass-claude-code] I try to make it run with [Gemini CLI](http://geminicli.com)
+
 
 A Home Assistant add-on that runs [Claude Code](https://docs.anthropic.com/en/docs/claude-code) inside your HA instance with a web terminal, full API access, and a built-in MCP server providing structured tools for interacting with your smart home.
 
@@ -15,22 +18,22 @@ A Home Assistant add-on that runs [Claude Code](https://docs.anthropic.com/en/do
 
 ### 1. Add the repository
 
-[![Open your Home Assistant instance and show the add add-on repository dialog.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fdkmaker%2Fhass-claude-code)
+[![Open your Home Assistant instance and show the add add-on repository dialog.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fdktzde%2Fhagemini-cli)
 
 Or manually:
 
 1. Go to **Settings** > **Add-ons** > **Add-on Store**
 2. Click the **three-dot menu** (top right) > **Repositories**
-3. Add: `https://github.com/dkmaker/hass-claude-code`
+3. Add: `https://github.com/dktzde/ha-gemini-cli/`
 4. Click **Save**, then refresh
 
 ### 2. Install the add-on
 
-1. Find **Claude Code** in the add-on store
+1. Find **Gemini CLI** in the add-on store
 2. Click **Install** (the Docker image builds locally on your device — this takes a few minutes on first install)
-3. Go to the **Configuration** tab and set your **Anthropic API key**
+3. Go to the **Configuration** tab and set your **Gemini API key**
 4. Click **Start**
-5. Open the **Claude Code** panel in the sidebar
+5. Open the **Gemini CLI** panel in the sidebar
 
 ### How the build works
 
@@ -39,7 +42,7 @@ Home Assistant builds the Docker image **locally on your device** when you insta
 1. Installs Node.js dependencies for the MCP server
 2. Clones the HA documentation from this repository
 3. Builds a keyword search index from the docs
-4. Installs Claude Code CLI, ttyd, tmux, and other tools
+4. Installs Gemini CLI, ttyd, tmux, and other tools
 5. Sets up s6-overlay services for process management
 
 First install takes several minutes depending on your hardware. Subsequent updates are faster due to Docker layer caching.
@@ -48,8 +51,8 @@ First install takes several minutes depending on your hardware. Subsequent updat
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `api_key` | password | *required* | Your Anthropic API key |
-| `model` | string | *(empty)* | Claude model to use (leave empty for default) |
+| `api_key` | password | *required* | Your Gemini API key |
+| `model` | string | *(empty)* | Gemini model to use (leave empty for default) |
 | `yolo_mode` | bool | `false` | Skip permission prompts (use with caution) |
 | `enable_embeddings` | bool | `false` | Download AI model for semantic doc search (~87MB) |
 | `additional_packages` | list | `[]` | Extra Alpine packages to install (e.g. `python3`, `vim`) |
@@ -103,21 +106,7 @@ addon/
       db.ts, search.ts, embeddings.ts, indexer.ts  # Search engine
 ```
 
-The MCP server runs as a stdio child process of Claude Code (configured via `.mcp.json`). No separate network port needed.
-
-## Development
-
-To test locally without HA:
-
-```bash
-# Build the Docker image
-docker build -t claude-code-addon addon/
-
-# Run with your API key
-docker run -it \
-  -e SUPERVISOR_TOKEN=fake \
-  -e ANTHROPIC_API_KEY=your-key \
-  claude-code-addon
+The MCP server runs as a stdio child process of Gemini CLI (configured via `.mcp.json`). No separate network port needed.
 ```
 
 ## Supported Architectures
