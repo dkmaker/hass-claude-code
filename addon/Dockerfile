@@ -63,12 +63,8 @@ RUN apk add --no-cache \
     tmux \
     ttyd
 
-# Install Claude Code via official binary installer
-RUN curl -fsSL https://claude.ai/install.sh | bash
-
-# Add Claude Code to PATH and disable auto-updater
-ENV PATH="/root/.local/bin:${PATH}" \
-    DISABLE_AUTOUPDATER=1
+# Install Google Gemini CLI via npm
+RUN npm install -g @google/gemini-cli
 
 # Copy MCP server from builder (compiled JS + prod deps + pre-built DB)
 COPY --from=mcp-builder /build/mcp-server/dist /opt/mcp-server/dist
