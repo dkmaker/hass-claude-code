@@ -1,5 +1,7 @@
 # Gemini CLI for Home Assistant
 
+Be careful! Work in Process - not tested yet!
+
 This is a fork of [https://github.com/dkmaker/hass-claude-code] I try to make it run with [Gemini CLI](http://geminicli.com)
 
 
