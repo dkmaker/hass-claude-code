@@ -1,0 +1,1197 @@
+From 3e8ad28b89cd4a81b856785822d6ed01a717f987 Mon Sep 17 00:00:00 2001
+From: dktzde <ha-gemini@unbox.at>
+Date: Fri, 27 Feb 2026 06:21:30 +0100
+Subject: [PATCH 1/2] Replace Claude Code with Gemini CLI references
+
+---
+ .gitignore                                    |   8 +-
+ CLAUDE.md => GEMINI.md                        |  20 +-
+ addon/CHANGELOG.md                            |   2 +-
+ addon/Dockerfile                              |   4 +-
+ addon/config.yaml                             |   4 +-
+ addon/mcp-server/src/indexer.ts               |   2 +-
+ .../etc/s6-overlay/s6-rc.d/init-claude/run    | 158 ------
+ .../etc/s6-overlay/s6-rc.d/init-claude/up     |   1 -
+ .../dependencies.d/base                       |   0
+ .../etc/s6-overlay/s6-rc.d/init-gemini/run    | 482 ++++++++++++++++++
+ .../s6-rc.d/{init-claude => init-gemini}/type |   0
+ .../etc/s6-overlay/s6-rc.d/init-gemini/up     |   1 +
+ .../{init-claude => init-gemini}              |   0
+ .../etc/s6-overlay/s6-rc.d/init-mcp/run       |  12 +
+ .../etc/s6-overlay/s6-rc.d/init-packages/run  |   5 +
+ .../{init-claude => init-gemini}              |   0
+ .../rootfs/etc/s6-overlay/s6-rc.d/ttyd/finish |   0
+ addon/rootfs/etc/s6-overlay/s6-rc.d/ttyd/run  |  61 +++
+ .../contents.d/{init-claude => init-gemini}   |   0
+ addon/rootfs/usr/bin/claude-entrypoint.sh     |  31 --
+ addon/rootfs/usr/bin/gemini-entrypoint.sh     |  90 ++++
+ project_info.md                               |  73 +++
+ 22 files changed, 744 insertions(+), 210 deletions(-)
+ rename CLAUDE.md => GEMINI.md (83%)
+ delete mode 100644 addon/rootfs/etc/s6-overlay/s6-rc.d/init-claude/run
+ delete mode 100644 addon/rootfs/etc/s6-overlay/s6-rc.d/init-claude/up
+ rename addon/rootfs/etc/s6-overlay/s6-rc.d/{init-claude => init-gemini}/dependencies.d/base (100%)
+ create mode 100644 addon/rootfs/etc/s6-overlay/s6-rc.d/init-gemini/run
+ rename addon/rootfs/etc/s6-overlay/s6-rc.d/{init-claude => init-gemini}/type (100%)
+ create mode 100644 addon/rootfs/etc/s6-overlay/s6-rc.d/init-gemini/up
+ rename addon/rootfs/etc/s6-overlay/s6-rc.d/init-mcp/dependencies.d/{init-claude => init-gemini} (100%)
+ rename addon/rootfs/etc/s6-overlay/s6-rc.d/ttyd/dependencies.d/{init-claude => init-gemini} (100%)
+ mode change 100644 => 100755 addon/rootfs/etc/s6-overlay/s6-rc.d/ttyd/finish
+ rename addon/rootfs/etc/s6-overlay/s6-rc.d/user/contents.d/{init-claude => init-gemini} (100%)
+ delete mode 100644 addon/rootfs/usr/bin/claude-entrypoint.sh
+ create mode 100755 addon/rootfs/usr/bin/gemini-entrypoint.sh
+ create mode 100644 project_info.md
+
+diff --git a/.gitignore b/.gitignore
+index 33da788..ae5e1d6 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,8 +1,8 @@
+ # Docs search service runtime data
+-.claude/skills/hass-dev-docs/service/data/
+-.claude/skills/hass-dev-docs/service/node_modules/
+-.claude/skills/hass-dev-docs/service/package-lock.json
+-.claude/skills/hass-dev-docs/service/pnpm-lock.yaml
++.gemini/skills/hass-dev-docs/service/data/
++.gemini/skills/hass-dev-docs/service/node_modules/
++.gemini/skills/hass-dev-docs/service/package-lock.json
++.gemini/skills/hass-dev-docs/service/pnpm-lock.yaml
+ .hass-docs-port
+ .hass-docs-pid
+ 
+diff --git a/CLAUDE.md b/GEMINI.md
+similarity index 83%
+rename from CLAUDE.md
+rename to GEMINI.md
+index 6aec910..154215b 100644
+--- a/CLAUDE.md
++++ b/GEMINI.md
+@@ -1,21 +1,21 @@
+-# CLAUDE.md
++# GEMINI.md
+ 
+-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
++This file provides guidance to Gemini CLI when working with code in this repository.
+ 
+ ## Project overview
+ 
+-This repository provides Claude Code with Home Assistant documentation search capabilities. It contains:
++This repository provides Gemini CLI with Home Assistant documentation search capabilities. It contains:
+ 
+ - **Local doc mirrors** of HA user and developer documentation (cleaned markdown)
+ - **A semantic search service** for querying those docs via vector + keyword search
+-- **Claude Code skills and agents** that wire everything together
++- **Gemini CLI skills and agents** that wire everything together
+ 
+-The goal: when working on HA integrations in other repos, Claude Code can search these docs via the `hass-dev-docs` skill or `hass-docs-search` subagent.
++The goal: when working on HA integrations in other repos, Gemini CLI can search these docs via the `hass-dev-docs` skill or `hass-docs-search` subagent.
+ 
+ ## Architecture
+ 
+ ```
+-.claude/
++.gemini/
+   agents/
+     hass-docs-search.md    # Haiku subagent — searches docs via the HTTP service
+   skills/
+@@ -53,10 +53,10 @@ TypeScript service running on Node.js via tsx. Key modules:
+ 
+ ```bash
+ # Install dependencies (first time)
+-pnpm --dir .claude/skills/hass-dev-docs/service install
++pnpm --dir .gemini/skills/hass-dev-docs/service install
+ 
+ # Start service (dynamic port written to .hass-docs-port)
+-pnpm --dir .claude/skills/hass-dev-docs/service start
++pnpm --dir .gemini/skills/hass-dev-docs/service start
+ 
+ # Stop service
+ kill $(cat .hass-docs-pid)
+@@ -66,10 +66,10 @@ kill $(cat .hass-docs-pid)
+ 
+ ```bash
+ # Developer docs
+-python .claude/skills/hass-dev-docs/scripts/update-docs.py docs/hass-developer
++python .gemini/skills/hass-dev-docs/scripts/update-docs.py docs/hass-developer
+ 
+ # User docs
+-python .claude/skills/hass-dev-docs/scripts/update-user-docs.py docs/hass-user
++python .gemini/skills/hass-dev-docs/scripts/update-user-docs.py docs/hass-user
+ ```
+ 
+ ### Search API (when service is running)
+diff --git a/addon/CHANGELOG.md b/addon/CHANGELOG.md
+index 16c44cd..0fd0d2d 100644
+--- a/addon/CHANGELOG.md
++++ b/addon/CHANGELOG.md
+@@ -3,4 +3,4 @@
+ ### Test Release 
+ 
+ - Fork of https://github.com/dkmaker/hass-claude-code
+-- Changed everything to Gemini cli
++- Changed everything to Gemini CLI
+diff --git a/addon/Dockerfile b/addon/Dockerfile
+index 93748c9..096178c 100644
+--- a/addon/Dockerfile
++++ b/addon/Dockerfile
+@@ -63,7 +63,7 @@ RUN apk add --no-cache \
+     tmux \
+     ttyd
+ 
+-# Install Google Gemini CLI via npm
++# Install Gemini CLI via npm
+ RUN npm install -g @google/gemini-cli
+ 
+ # Copy MCP server from builder (compiled JS + prod deps + pre-built DB)
+@@ -79,7 +79,7 @@ COPY --from=mcp-builder /build/docs /opt/docs
+ COPY rootfs /
+ 
+ # Ensure scripts are executable
+-RUN chmod a+x /usr/bin/claude-entrypoint.sh \
++RUN chmod a+x /usr/bin/gemini-entrypoint.sh \
+     && find /etc/s6-overlay/s6-rc.d -name 'run' -exec chmod a+x {} \; \
+     && find /etc/s6-overlay/s6-rc.d -name 'finish' -exec chmod a+x {} \;
+ 
+diff --git a/addon/config.yaml b/addon/config.yaml
+index 1f172b3..dab4d5e 100644
+--- a/addon/config.yaml
++++ b/addon/config.yaml
+@@ -1,8 +1,8 @@
+ ---
+-name: Gemini cli
++name: Gemini CLI
+ version: 0.1
+ slug: gemini_cli
+-description: AI coding assistant with full Home Assistant access
++description: AI coding assistant with full Home Assistant access (Gemini CLI)
+ startup: services
+ ingress: true
+ ingress_port: 0
+diff --git a/addon/mcp-server/src/indexer.ts b/addon/mcp-server/src/indexer.ts
+index 7423750..03952b9 100644
+--- a/addon/mcp-server/src/indexer.ts
++++ b/addon/mcp-server/src/indexer.ts
+@@ -109,7 +109,7 @@ export async function indexDocSet(docSetPath: string, docSetName: string): Promi
+ 
+     const files = await glob('**/*.md', {
+       cwd: basePath,
+-      ignore: ['**/CLAUDE.md', '**/CHANGELOG.md'],
++      ignore: ['**/GEMINI.md', '**/CHANGELOG.md'],
+     });
+ 
+     console.error(`[indexer] Found ${files.length} markdown files`);
+diff --git a/addon/rootfs/etc/s6-overlay/s6-rc.d/init-claude/run b/addon/rootfs/etc/s6-overlay/s6-rc.d/init-claude/run
+deleted file mode 100644
+index 3547ee0..0000000
+--- a/addon/rootfs/etc/s6-overlay/s6-rc.d/init-claude/run
++++ /dev/null
+@@ -1,158 +0,0 @@
+-#!/command/with-contenv bashio
+-# shellcheck shell=bash
+-# ==============================================================================
+-# Claude Code Add-on: Environment setup
+-# Sets up API key, CLAUDE.md, .mcp.json, persistent storage
+-# ==============================================================================
+-declare api_key
+-declare model
+-declare yolo_mode
+-declare enable_embeddings
+-
+-bashio::log.info 'Setting up Claude Code environment...'
+-
+-# --- Read config ---
+-api_key=$(bashio::config 'api_key')
+-model=$(bashio::config 'model')
+-yolo_mode=$(bashio::config 'yolo_mode')
+-enable_embeddings=$(bashio::config 'enable_embeddings')
+-
+-# --- Set environment variables for all services (s6 convention: one file per var) ---
+-printf '%s' "${enable_embeddings}" > /var/run/s6/container_environment/ENABLE_EMBEDDINGS
+-printf '%s' "/opt/mcp-server/data/docs-search.db" > /var/run/s6/container_environment/DOCS_DB_PATH
+-printf '%s' "/opt/docs" > /var/run/s6/container_environment/DOCS_PATH
+-printf '%s' "/data/models" > /var/run/s6/container_environment/MODELS_DIR
+-
+-# Write all config to /etc/profile.d/ so the entrypoint shell sees them
+-{
+-    if bashio::var.has_value "${api_key}"; then
+-        echo "export ANTHROPIC_API_KEY=\"${api_key}\""
+-    else
+-        bashio::log.info 'No API key configured — use /login in Claude Code to authenticate via subscription.'
+-    fi
+-    echo "export SUPERVISOR_TOKEN=\"${SUPERVISOR_TOKEN}\""
+-    echo "export DISABLE_AUTOUPDATER=1"
+-    echo "export CLAUDE_MODEL=\"${model}\""
+-    echo "export CLAUDE_YOLO=\"${yolo_mode}\""
+-} > /etc/profile.d/claude.sh
+-
+-# --- Persistent storage ---
+-mkdir -p /data/.claude /data/models
+-if [[ ! -f /data/.claude.json ]]; then
+-    echo '{}' > /data/.claude.json
+-fi
+-touch /data/.bash_history
+-
+-# Symlink persistent data into root home
+-ln -sf /data/.claude /root/.claude
+-ln -sf /data/.claude.json /root/.claude.json
+-ln -sf /data/.bash_history /root/.bash_history
+-
+-# Symlink convenient paths
+-ln -sf /homeassistant /root/homeassistant
+-ln -sf /share /root/share
+-
+-# --- Generate managed settings (system-wide) ---
+-mkdir -p /etc/claude-code
+-
+-# When yolo mode is enabled, use managed settings to allow all tools.
+-# This works as root (unlike --dangerously-skip-permissions which blocks on root).
+-if bashio::config.true 'yolo_mode'; then
+-    bashio::log.info 'Yolo mode enabled — configuring auto-approve for all tools.'
+-    cat > /etc/claude-code/managed-settings.json << 'SETTINGSEOF'
+-{
+-  "permissions": {
+-    "allow": [
+-      "Bash",
+-      "Edit",
+-      "Write",
+-      "Read",
+-      "Glob",
+-      "Grep",
+-      "WebFetch",
+-      "WebSearch",
+-      "NotebookEdit",
+-      "TodoWrite",
+-      "Task",
+-      "EnterPlanMode",
+-      "ExitPlanMode",
+-      "SendMessage",
+-      "TeamCreate",
+-      "TeamDelete",
+-      "AskUserQuestion",
+-      "mcp__home-assistant__search_entities",
+-      "mcp__home-assistant__get_entity_state",
+-      "mcp__home-assistant__call_service",
+-      "mcp__home-assistant__search_automations",
+-      "mcp__home-assistant__get_ha_config",
+-      "mcp__home-assistant__list_areas",
+-      "mcp__home-assistant__search_devices",
+-      "mcp__home-assistant__get_config_entries",
+-      "mcp__home-assistant__search_docs",
+-      "mcp__home-assistant__read_doc",
+-      "mcp__home-assistant__get_doc_stats"
+-    ],
+-    "deny": []
+-  },
+-  "permissions.defaultMode": "acceptEdits"
+-}
+-SETTINGSEOF
+-else
+-    echo '{}' > /etc/claude-code/managed-settings.json
+-fi
+-
+-# --- Generate managed MCP config (system-wide, always loaded) ---
+-bashio::log.info 'Generating MCP server configuration...'
+-
+-cat > /etc/claude-code/managed-mcp.json << MCPEOF
+-{
+-  "mcpServers": {
+-    "home-assistant": {
+-      "command": "node",
+-      "args": ["/opt/mcp-server/dist/index.js"],
+-      "env": {
+-        "SUPERVISOR_TOKEN": "${SUPERVISOR_TOKEN}",
+-        "ENABLE_EMBEDDINGS": "${enable_embeddings}",
+-        "DOCS_DB_PATH": "/opt/mcp-server/data/docs-search.db",
+-        "DOCS_PATH": "/opt/docs",
+-        "MODELS_DIR": "/data/models"
+-      }
+-    }
+-  }
+-}
+-MCPEOF
+-
+-# --- Generate default CLAUDE.md in /homeassistant/ if absent ---
+-if [[ ! -f /homeassistant/CLAUDE.md ]]; then
+-    bashio::log.info 'Creating default CLAUDE.md in Home Assistant config...'
+-    cat > /homeassistant/CLAUDE.md << 'EOF'
+-# Home Assistant Development Environment
+-
+-You are working inside a Home Assistant instance with full API access.
+-
+-## Available MCP Tools
+-
+-The `home-assistant` MCP server provides these tools:
+-- `search_entities` - Search entities by name, domain, or area
+-- `get_entity_state` - Get state and attributes of an entity
+-- `call_service` - Call any HA service (turn on lights, trigger automations, etc.)
+-- `search_automations` - Search automation entities
+-- `get_ha_config` - Get HA core configuration
+-- `list_areas` - List all defined areas
+-- `search_devices` - Search device registry
+-- `get_config_entries` - List integration config entries
+-- `search_docs` - Search HA developer and user documentation
+-- `read_doc` - Read a specific documentation file
+-- `get_doc_stats` - Get documentation index statistics
+-
+-## File Locations
+-
+-- `/homeassistant/` - Home Assistant configuration directory
+-- `/homeassistant/.storage/` - Internal registry and state data
+-- `/share/` - Shared storage between add-ons
+-- `/ssl/` - SSL certificates (read-only)
+-- `/media/` - Media files (read-only)
+-EOF
+-fi
+-
+-bashio::log.info 'Claude Code environment ready.'
+diff --git a/addon/rootfs/etc/s6-overlay/s6-rc.d/init-claude/up b/addon/rootfs/etc/s6-overlay/s6-rc.d/init-claude/up
+deleted file mode 100644
+index 8000ba2..0000000
+--- a/addon/rootfs/etc/s6-overlay/s6-rc.d/init-claude/up
++++ /dev/null
+@@ -1 +0,0 @@
+-/etc/s6-overlay/s6-rc.d/init-claude/run
+diff --git a/addon/rootfs/etc/s6-overlay/s6-rc.d/init-claude/dependencies.d/base b/addon/rootfs/etc/s6-overlay/s6-rc.d/init-gemini/dependencies.d/base
+similarity index 100%
+rename from addon/rootfs/etc/s6-overlay/s6-rc.d/init-claude/dependencies.d/base
+rename to addon/rootfs/etc/s6-overlay/s6-rc.d/init-gemini/dependencies.d/base
+diff --git a/addon/rootfs/etc/s6-overlay/s6-rc.d/init-gemini/run b/addon/rootfs/etc/s6-overlay/s6-rc.d/init-gemini/run
+new file mode 100644
+index 0000000..9457e47
+--- /dev/null
++++ b/addon/rootfs/etc/s6-overlay/s6-rc.d/init-gemini/run
+@@ -0,0 +1,482 @@
++declare api_key
++declare model
++declare yolo_mode
++declare enable_embeddings
++
++bashio::log.info 'Setting up Gemini CLI environment...'
++=======
++# Gemini CLI Add-on: Environment setup
++# Sets up API key, GEMINI.md, .mcp.json, persistent storage
++# ==============================================================================
++declare api_key
++declare model
++declare yolo_mode
++declare enable_embeddings
++
++bashio::log.info 'Setting up Gemini CLI environment...'==============================================================================
++declare api_key
++declare model
++declare yolo_mode
++declare enable_embeddings
++
++bashio::log.info 'Setting up Gemini CLI environment...'
++
++# --- Read config ---
++api_key=$(bashio::config 'api_key')
++model=$(bashio::config 'model')
++yolo_mode=$(bashio::config 'yolo_mode')
++enable_embeddings=$(bashio::config 'enable_embeddings')
++
++# --- Set environment variables for all services (s6 convention: one file per var) ---
++printf '%s' "${enable_embeddings}" > /var/run/s6/container_environment/ENABLE_EMBEDDINGS
++printf '%s' "/opt/mcp-server/data/docs-search.db" > /var/run/s6/container_environment/DOCS_DB_PATH
++printf '%s' "/opt/docs" > /var/run/s6/container_environment/DOCS_PATH
++printf '%s' "/data/models" > /var/run/s6/container_environment/MODELS_DIR
++
++# Write all config to /etc/profile.d/ so the entrypoint shell sees them
++{
++    if bashio::var.has_value "${api_key}"; then
++        echo "export GOOGLE_API_KEY=\"${api_key}\""
++    else
++        bashio::log.info 'No API key configured — use /login in Gemini CLI to authenticate via subscription.'
++    fi
++    echo "export SUPERVISOR_TOKEN=\"${SUPERVISOR_TOKEN}\""
++    echo "export DISABLE_AUTOUPDATER=1"
++    echo "export GEMINI_MODEL=\"${model}\""
++    echo "export GEMINI_YOLO=\"${yolo_mode}\""
++} > /etc/profile.d/gemini.sh
++
++# --- Persistent storage ---
++mkdir -p /data/.gemini /data/models
++if [[ ! -f /data/.gemini.json ]]; then
++    echo '{}' > /data/.gemini.json
++fi
++touch /data/.bash_history
++
++# Symlink persistent data into root home
++ln -sf /data/.gemini /root/.gemini
++ln -sf /data/.gemini.json /root/.gemini.json
++ln -sf /data/.bash_history /root/.bash_history
++
++# Symlink convenient paths
++ln -sf /homeassistant /root/homeassistant
++ln -sf /share /root/share
++
++# --- Generate managed settings (system-wide) ---
++mkdir -p /etc/gemini-cli
++
++# When yolo mode is enabled, use managed settings to allow all tools.
++# This works as root (unlike --dangerously-skip-permissions which blocks on root).
++if bashio::config.true 'yolo_mode'; then
++    bashio::log.info 'Yolo mode enabled — configuring auto-approve for all tools.'
++    cat > /etc/gemini-cli/managed-settings.json << 'SETTINGSEOF'
++{
++  "permissions": {
++    "allow": [
++      "Bash",
++      "Edit",
++      "Write",
++      "Read",
++      "Glob",
++      "Grep",
++      "WebFetch",
++      "WebSearch",
++      "NotebookEdit",
++      "TodoWrite",
++      "Task",
++      "EnterPlanMode",
++      "ExitPlanMode",
++      "SendMessage",
++      "TeamCreate",
++      "TeamDelete",
++      "AskUserQuestion",
++      "mcp__home-assistant__search_entities",
++      "mcp__home-assistant__get_entity_state",
++      "mcp__home-assistant__call_service",
++      "mcp__home-assistant__search_automations",
++      "mcp__home-assistant__get_ha_config",
++      "mcp__home-assistant__list_areas",
++      "mcp__home-assistant__search_devices",
++      "mcp__home-assistant__get_config_entries",
++      "mcp__home-assistant__search_docs",
++      "mcp__home-assistant__read_doc",
++      "mcp__home-assistant__get_doc_stats"
++    ],
++    "deny": []
++  },
++  "permissions.defaultMode": "acceptEdits"
++}
++SETTINGSEOF
++else
++    echo '{}' > /etc/gemini-cli/managed-settings.json
++fi
++
++# --- Generate managed MCP config (system-wide, always loaded) ---
++bashio::log.info 'Generating MCP server configuration...'
++
++cat > /etc/gemini-cli/managed-mcp.json << MCPEOF
++{
++  "mcpServers": {
++    "home-assistant": {
++      "command": "node",
++      "args": ["/opt/mcp-server/dist/index.js"],
++      "env": {
++        "SUPERVISOR_TOKEN": "${SUPERVISOR_TOKEN}",
++        "ENABLE_EMBEDDINGS": "${enable_embeddings}",
++        "DOCS_DB_PATH": "/opt/mcp-server/data/docs-search.db",
++        "DOCS_PATH": "/opt/docs",
++        "MODELS_DIR": "/data/models"
++      }
++    }
++  }
++}
++MCPEOF
++
++# --- Generate default GEMINI.md in /homeassistant/ if absent ---
++if [[ ! -f /homeassistant/GEMINI.md ]]; then
++    bashio::log.info 'Creating default GEMINI.md in Home Assistant config...'
++    cat > /homeassistant/GEMINI.md << 'EOF'
++# Home Assistant Development Environment
++
++You are working inside a Home Assistant instance with full API access.
++
++## Available MCP Tools
++
++The `home-assistant` MCP server provides these tools:
++- `search_entities` - Search entities by name, domain, or area
++- `get_entity_state` - Get state and attributes of an entity
++- `call_service` - Call any HA service (turn on lights, trigger automations, etc.)
++- `search_automations` - Search automation entities
++- `get_ha_config` - Get HA core configuration
++- `list_areas` - List all defined areas
++- `search_devices` - Search device registry
++- `get_config_entries` - List integration config entries
++- `search_docs` - Search HA developer and user documentation
++- `read_doc` - Read a specific documentation file
++- `get_doc_stats` - Get documentation index statistics
++
++## File Locations
++
++- `/homeassistant/` - Home Assistant configuration directory
++- `/homeassistant/.storage/` - Internal registry and state data
++- `/share/` - Shared storage between add-ons
++- `/ssl/` - SSL certificates (read-only)
++- `/media/` - Media files (read-only)
++EOF
++fi
++
++bashio::log.info 'Gemini CLI environment ready.'
++=======
++#!/command/with-contenv bashio
++# shellcheck shell=bash
++# ==============================================================================
++# Gemini CLI Add-on: Environment setup
++# Sets up API key, GEMINI.md, .mcp.json, persistent storage
++# ==============================================================================
++declare api_key
++declare model
++declare yolo_mode
++declare enable_embeddings
++
++bashio::log.info 'Setting up Gemini CLI environment...'
++
++# --- Read config ---
++api_key=$(bashio::config 'api_key')
++model=$(bashio::config 'model')
++yolo_mode=$(bashio::config 'yolo_mode')
++enable_embeddings=$(bashio::config 'enable_embeddings')
++
++# --- Set environment variables for all services (s6 convention: one file per var) ---
++printf '%s' "${enable_embeddings}" > /var/run/s6/container_environment/ENABLE_EMBEDDINGS
++printf '%s' "/opt/mcp-server/data/docs-search.db" > /var/run/s6/container_environment/DOCS_DB_PATH
++printf '%s' "/opt/docs" > /var/run/s6/container_environment/DOCS_PATH
++printf '%s' "/data/models" > /var/run/s6/container_environment/MODELS_DIR
++
++# Write all config to /etc/profile.d/ so the entrypoint shell sees them
++{
++    if bashio::var.has_value "${api_key}"; then
++        echo "export GOOGLE_API_KEY=\"${api_key}\""
++    else
++        bashio::log.info 'No API key configured — use /login in Gemini CLI to authenticate via subscription.'
++    fi
++    echo "export SUPERVISOR_TOKEN=\"${SUPERVISOR_TOKEN}\""
++    echo "export DISABLE_AUTOUPDATER=1"
++    echo "export GEMINI_MODEL=\"${model}\""
++    echo "export GEMINI_YOLO=\"${yolo_mode}\""
++} > /etc/profile.d/gemini.sh
++
++# --- Persistent storage ---
++mkdir -p /data/.gemini /data/models
++if [[ ! -f /data/.gemini.json ]]; then
++    echo '{}' > /data/.gemini.json
++fi
++touch /data/.bash_history
++
++# Symlink persistent data into root home
++ln -sf /data/.gemini /root/.gemini
++ln -sf /data/.gemini.json /root/.gemini.json
++ln -sf /data/.bash_history /root/.bash_history
++
++# Symlink convenient paths
++ln -sf /homeassistant /root/homeassistant
++ln -sf /share /root/share
++
++# --- Generate managed settings (system-wide) ---
++mkdir -p /etc/gemini-cli
++
++# When yolo mode is enabled, use managed settings to allow all tools.
++# This works as root (unlike --dangerously-skip-permissions which blocks on root).
++if bashio::config.true 'yolo_mode'; then
++    bashio::log.info 'Yolo mode enabled — configuring auto-approve for all tools.'
++    cat > /etc/gemini-cli/managed-settings.json << 'SETTINGSEOF'
++{
++  "permissions": {
++    "allow": [
++      "Bash",
++      "Edit",
++      "Write",
++      "Read",
++      "Glob",
++      "Grep",
++      "WebFetch",
++      "WebSearch",
++      "NotebookEdit",
++      "TodoWrite",
++      "Task",
++      "EnterPlanMode",
++      "ExitPlanMode",
++      "SendMessage",
++      "TeamCreate",
++      "TeamDelete",
++      "AskUserQuestion",
++      "mcp__home-assistant__search_entities",
++      "mcp__home-assistant__get_entity_state",
++      "mcp__home-assistant__call_service",
++      "mcp__home-assistant__search_automations",
++      "mcp__home-assistant__get_ha_config",
++      "mcp__home-assistant__list_areas",
++      "mcp__home-assistant__search_devices",
++      "mcp__home-assistant__get_config_entries",
++      "mcp__home-assistant__search_docs",
++      "mcp__home-assistant__read_doc",
++      "mcp__home-assistant__get_doc_stats"
++    ],
++    "deny": []
++  },
++  "permissions.defaultMode": "acceptEdits"
++}
++SETTINGSEOF
++else
++    echo '{}' > /etc/gemini-cli/managed-settings.json
++fi
++
++# --- Generate managed MCP config (system-wide, always loaded) ---
++bashio::log.info 'Generating MCP server configuration...'
++
++cat > /etc/gemini-cli/managed-mcp.json << MCPEOF
++{
++  "mcpServers": {
++    "home-assistant": {
++      "command": "node",
++      "args": ["/opt/mcp-server/dist/index.js"],
++      "env": {
++        "SUPERVISOR_TOKEN": "${SUPERVISOR_TOKEN}",
++        "ENABLE_EMBEDDINGS": "${enable_embeddings}",
++        "DOCS_DB_PATH": "/opt/mcp-server/data/docs-search.db",
++        "DOCS_PATH": "/opt/docs",
++        "MODELS_DIR": "/data/models"
++      }
++    }
++  }
++}
++MCPEOF
++
++# --- Generate default GEMINI.md in /homeassistant/ if absent ---
++if [[ ! -f /homeassistant/GEMINI.md ]]; then
++    bashio::log.info 'Creating default GEMINI.md in Home Assistant config...'
++    cat > /homeassistant/GEMINI.md << 'EOF'
++# Home Assistant Development Environment
++
++You are working inside a Home Assistant instance with full API access.
++
++## Available MCP Tools
++
++The `home-assistant` MCP server provides these tools:
++- `search_entities` - Search entities by name, domain, or area
++- `get_entity_state` - Get state and attributes of an entity
++- `call_service` - Call any HA service (turn on lights, trigger automations, etc.)
++- `search_automations` - Search automation entities
++- `get_ha_config` - Get HA core configuration
++- `list_areas` - List all defined areas
++- `search_devices` - Search device registry
++- `get_config_entries` - List integration config entries
++- `search_docs` - Search HA developer and user documentation
++- `read_doc` - Read a specific documentation file
++- `get_doc_stats` - Get documentation index statistics
++
++## File Locations
++
++- `/homeassistant/` - Home Assistant configuration directory
++- `/homeassistant/.storage/` - Internal registry and state data
++- `/share/` - Shared storage between add-ons
++- `/ssl/` - SSL certificates (read-only)
++- `/media/` - Media files (read-only)
++EOF
++fi
++
++bashio::log.info 'Gemini CLI environment ready.'==============================================================================
++# Gemini CLI Add-on: Environment setup
++# Sets up API key, GEMINI.md, .mcp.json, persistent storage
++# ==============================================================================
++declare api_key
++declare model
++declare yolo_mode
++declare enable_embeddings
++
++bashio::log.info 'Setting up Gemini CLI environment...'
++
++# --- Read config ---
++api_key=$(bashio::config 'api_key')
++model=$(bashio::config 'model')
++yolo_mode=$(bashio::config 'yolo_mode')
++enable_embeddings=$(bashio::config 'enable_embeddings')
++
++# --- Set environment variables for all services (s6 convention: one file per var) ---
++printf '%s' "${enable_embeddings}" > /var/run/s6/container_environment/ENABLE_EMBEDDINGS
++printf '%s' "/opt/mcp-server/data/docs-search.db" > /var/run/s6/container_environment/DOCS_DB_PATH
++printf '%s' "/opt/docs" > /var/run/s6/container_environment/DOCS_PATH
++printf '%s' "/data/models" > /var/run/s6/container_environment/MODELS_DIR
++
++# Write all config to /etc/profile.d/ so the entrypoint shell sees them
++{
++    if bashio::var.has_value "${api_key}"; then
++        echo "export GOOGLE_API_KEY=\"${api_key}\""
++    else
++        bashio::log.info 'No API key configured — use /login in Gemini CLI to authenticate via subscription.'
++    fi
++    echo "export SUPERVISOR_TOKEN=\"${SUPERVISOR_TOKEN}\""
++    echo "export DISABLE_AUTOUPDATER=1"
++    echo "export GEMINI_MODEL=\"${model}\""
++    echo "export GEMINI_YOLO=\"${yolo_mode}\""
++} > /etc/profile.d/gemini.sh
++
++# --- Persistent storage ---
++mkdir -p /data/.gemini /data/models
++if [[ ! -f /data/.gemini.json ]]; then
++    echo '{}' > /data/.gemini.json
++fi
++touch /data/.bash_history
++
++# Symlink persistent data into root home
++ln -sf /data/.gemini /root/.gemini
++ln -sf /data/.gemini.json /root/.gemini.json
++ln -sf /data/.bash_history /root/.bash_history
++
++# Symlink convenient paths
++ln -sf /homeassistant /root/homeassistant
++ln -sf /share /root/share
++
++# --- Generate managed settings (system-wide) ---
++mkdir -p /etc/gemini-cli
++
++# When yolo mode is enabled, use managed settings to allow all tools.
++# This works as root (unlike --dangerously-skip-permissions which blocks on root).
++if bashio::config.true 'yolo_mode'; then
++    bashio::log.info 'Yolo mode enabled — configuring auto-approve for all tools.'
++    cat > /etc/gemini-cli/managed-settings.json << 'SETTINGSEOF'
++{
++  "permissions": {
++    "allow": [
++      "Bash",
++      "Edit",
++      "Write",
++      "Read",
++      "Glob",
++      "Grep",
++      "WebFetch",
++      "WebSearch",
++      "NotebookEdit",
++      "TodoWrite",
++      "Task",
++      "EnterPlanMode",
++      "ExitPlanMode",
++      "SendMessage",
++      "TeamCreate",
++      "TeamDelete",
++      "AskUserQuestion",
++      "mcp__home-assistant__search_entities",
++      "mcp__home-assistant__get_entity_state",
++      "mcp__home-assistant__call_service",
++      "mcp__home-assistant__search_automations",
++      "mcp__home-assistant__get_ha_config",
++      "mcp__home-assistant__list_areas",
++      "mcp__home-assistant__search_devices",
++      "mcp__home-assistant__get_config_entries",
++      "mcp__home-assistant__search_docs",
++      "mcp__home-assistant__read_doc",
++      "mcp__home-assistant__get_doc_stats"
++    ],
++    "deny": []
++  },
++  "permissions.defaultMode": "acceptEdits"
++}
++SETTINGSEOF
++else
++    echo '{}' > /etc/gemini-cli/managed-settings.json
++fi
++
++# --- Generate managed MCP config (system-wide, always loaded) ---
++bashio::log.info 'Generating MCP server configuration...'
++
++cat > /etc/gemini-cli/managed-mcp.json << MCPEOF
++{
++  "mcpServers": {
++    "home-assistant": {
++      "command": "node",
++      "args": ["/opt/mcp-server/dist/index.js"],
++      "env": {
++        "SUPERVISOR_TOKEN": "${SUPERVISOR_TOKEN}",
++        "ENABLE_EMBEDDINGS": "${enable_embeddings}",
++        "DOCS_DB_PATH": "/opt/mcp-server/data/docs-search.db",
++        "DOCS_PATH": "/opt/docs",
++        "MODELS_DIR": "/data/models"
++      }
++    }
++  }
++}
++MCPEOF
++
++# --- Generate default GEMINI.md in /homeassistant/ if absent ---
++if [[ ! -f /homeassistant/GEMINI.md ]]; then
++    bashio::log.info 'Creating default GEMINI.md in Home Assistant config...'
++    cat > /homeassistant/GEMINI.md << 'EOF'
++# Home Assistant Development Environment
++
++You are working inside a Home Assistant instance with full API access.
++
++## Available MCP Tools
++
++The `home-assistant` MCP server provides these tools:
++- `search_entities` - Search entities by name, domain, or area
++- `get_entity_state` - Get state and attributes of an entity
++- `call_service` - Call any HA service (turn on lights, trigger automations, etc.)
++- `search_automations` - Search automation entities
++- `get_ha_config` - Get HA core configuration
++- `list_areas` - List all defined areas
++- `search_devices` - Search device registry
++- `get_config_entries` - List integration config entries
++- `search_docs` - Search HA developer and user documentation
++- `read_doc` - Read a specific documentation file
++- `get_doc_stats` - Get documentation index statistics
++
++## File Locations
++
++- `/homeassistant/` - Home Assistant configuration directory
++- `/homeassistant/.storage/` - Internal registry and state data
++- `/share/` - Shared storage between add-ons
++- `/ssl/` - SSL certificates (read-only)
++- `/media/` - Media files (read-only)
++EOF
++fi
++
++bashio::log.info 'Gemini CLI environment ready.'
+diff --git a/addon/rootfs/etc/s6-overlay/s6-rc.d/init-claude/type b/addon/rootfs/etc/s6-overlay/s6-rc.d/init-gemini/type
+similarity index 100%
+rename from addon/rootfs/etc/s6-overlay/s6-rc.d/init-claude/type
+rename to addon/rootfs/etc/s6-overlay/s6-rc.d/init-gemini/type
+diff --git a/addon/rootfs/etc/s6-overlay/s6-rc.d/init-gemini/up b/addon/rootfs/etc/s6-overlay/s6-rc.d/init-gemini/up
+new file mode 100644
+index 0000000..de1540e
+--- /dev/null
++++ b/addon/rootfs/etc/s6-overlay/s6-rc.d/init-gemini/up
+@@ -0,0 +1 @@
++/etc/s6-overlay/s6-rc.d/init-gemini/run
+diff --git a/addon/rootfs/etc/s6-overlay/s6-rc.d/init-mcp/dependencies.d/init-claude b/addon/rootfs/etc/s6-overlay/s6-rc.d/init-mcp/dependencies.d/init-gemini
+similarity index 100%
+rename from addon/rootfs/etc/s6-overlay/s6-rc.d/init-mcp/dependencies.d/init-claude
+rename to addon/rootfs/etc/s6-overlay/s6-rc.d/init-mcp/dependencies.d/init-gemini
+diff --git a/addon/rootfs/etc/s6-overlay/s6-rc.d/init-mcp/run b/addon/rootfs/etc/s6-overlay/s6-rc.d/init-mcp/run
+index 8568608..774f231 100644
+--- a/addon/rootfs/etc/s6-overlay/s6-rc.d/init-mcp/run
++++ b/addon/rootfs/etc/s6-overlay/s6-rc.d/init-mcp/run
+@@ -1,6 +1,18 @@
++# Claude Code Add-on: Optional embedding model download
++# ==============================================================================
++=======
++# Gemini CLI Add-on: Optional embedding model download
++# ============================================================================================================================================================
++# Claude Code Add-on: Optional embedding model download
++# ==============================================================================
++=======
+ #!/command/with-contenv bashio
+ # shellcheck shell=bash
+ # ==============================================================================
++# Gemini CLI Add-on: Optional embedding model download
++# ============================================================================================================================================================
++# Gemini CLI Add-on: Optional embedding model download
++# ============================================================================================================================================================
+ # Claude Code Add-on: Optional embedding model download
+ # ==============================================================================
+ declare enable_embeddings
+diff --git a/addon/rootfs/etc/s6-overlay/s6-rc.d/init-packages/run b/addon/rootfs/etc/s6-overlay/s6-rc.d/init-packages/run
+index 4f02de2..86da6f5 100644
+--- a/addon/rootfs/etc/s6-overlay/s6-rc.d/init-packages/run
++++ b/addon/rootfs/etc/s6-overlay/s6-rc.d/init-packages/run
+@@ -1,6 +1,11 @@
++# Claude Code Add-on: Install additional packages
++# ==============================================================================
++=======
+ #!/command/with-contenv bashio
+ # shellcheck shell=bash
+ # ==============================================================================
++# Gemini CLI Add-on: Install additional packages
++# ============================================================================================================================================================
+ # Claude Code Add-on: Install additional packages
+ # ==============================================================================
+ 
+diff --git a/addon/rootfs/etc/s6-overlay/s6-rc.d/ttyd/dependencies.d/init-claude b/addon/rootfs/etc/s6-overlay/s6-rc.d/ttyd/dependencies.d/init-gemini
+similarity index 100%
+rename from addon/rootfs/etc/s6-overlay/s6-rc.d/ttyd/dependencies.d/init-claude
+rename to addon/rootfs/etc/s6-overlay/s6-rc.d/ttyd/dependencies.d/init-gemini
+diff --git a/addon/rootfs/etc/s6-overlay/s6-rc.d/ttyd/finish b/addon/rootfs/etc/s6-overlay/s6-rc.d/ttyd/finish
+old mode 100644
+new mode 100755
+diff --git a/addon/rootfs/etc/s6-overlay/s6-rc.d/ttyd/run b/addon/rootfs/etc/s6-overlay/s6-rc.d/ttyd/run
+index e9afeab..9f3891f 100644
+--- a/addon/rootfs/etc/s6-overlay/s6-rc.d/ttyd/run
++++ b/addon/rootfs/etc/s6-overlay/s6-rc.d/ttyd/run
+@@ -1,6 +1,67 @@
++# Claude Code Add-on: ttyd web terminal
++# Runs ttyd → tmux → claude-entrypoint.sh
++# ==============================================================================
++declare -a options
++declare ingress_port
++
++bashio::log.info 'Starting the ttyd daemon...'
++
++# Set daemon debug level
++if bashio::debug; then
++    options+=(-d7)
++else
++    options+=(-d1)
++fi
++
++# Listen on all interfaces (Supervisor Ingress proxies to this container)
++options+=(-i 0.0.0.0)
++
++# Enable terminal input
++options+=(--writable)
++
++# Get assigned Ingress port
++ingress_port=$(bashio::addon.ingress_port)
++options+=(-p "${ingress_port}")
++
++# Change working directory
++cd /homeassistant || cd /root || bashio::exit.nok 'Unable to change working directory'
++
++# Run ttyd with tmux for session persistence
++exec ttyd "${options[@]}" tmux -u new -A -s claude /usr/bin/claude-entrypoint.sh
++=======
+ #!/command/with-contenv bashio
+ # shellcheck shell=bash
+ # ==============================================================================
++# Gemini CLI Add-on: ttyd web terminal
++# Runs ttyd → tmux → gemini-entrypoint.sh
++# ==============================================================================
++declare -a options
++declare ingress_port
++
++bashio::log.info 'Starting the ttyd daemon...'
++
++# Set daemon debug level
++if bashio::debug; then
++    options+=(-d7)
++else
++    options+=(-d1)
++fi
++
++# Listen on all interfaces (Supervisor Ingress proxies to this container)
++options+=(-i 0.0.0.0)
++
++# Enable terminal input
++options+=(--writable)
++
++# Get assigned Ingress port
++ingress_port=$(bashio::addon.ingress_port)
++options+=(-p "${ingress_port}")
++
++# Change working directory
++cd /homeassistant || cd /root || bashio::exit.nok 'Unable to change working directory'
++
++# Run ttyd with tmux for session persistence
++exec ttyd "${options[@]}" tmux -u new -A -s gemini /usr/bin/gemini-entrypoint.sh==============================================================================
+ # Claude Code Add-on: ttyd web terminal
+ # Runs ttyd → tmux → claude-entrypoint.sh
+ # ==============================================================================
+diff --git a/addon/rootfs/etc/s6-overlay/s6-rc.d/user/contents.d/init-claude b/addon/rootfs/etc/s6-overlay/s6-rc.d/user/contents.d/init-gemini
+similarity index 100%
+rename from addon/rootfs/etc/s6-overlay/s6-rc.d/user/contents.d/init-claude
+rename to addon/rootfs/etc/s6-overlay/s6-rc.d/user/contents.d/init-gemini
+diff --git a/addon/rootfs/usr/bin/claude-entrypoint.sh b/addon/rootfs/usr/bin/claude-entrypoint.sh
+deleted file mode 100644
+index 1cf30a7..0000000
+--- a/addon/rootfs/usr/bin/claude-entrypoint.sh
++++ /dev/null
+@@ -1,31 +0,0 @@
+-#!/usr/bin/env bash
+-# ==============================================================================
+-# Claude Code Add-on: Claude entrypoint
+-# Launches Claude Code with flags based on add-on configuration.
+-# This runs inside tmux, spawned by ttyd.
+-# ==============================================================================
+-set -e
+-
+-# Source environment (written by init-claude)
+-if [[ -f /etc/profile.d/claude.sh ]]; then
+-    # shellcheck source=/dev/null
+-    source /etc/profile.d/claude.sh
+-fi
+-
+-# Build claude args
+-declare -a CLAUDE_ARGS=()
+-
+-# Model selection
+-if [[ -n "${CLAUDE_MODEL:-}" && "${CLAUDE_MODEL}" != "default" ]]; then
+-    CLAUDE_ARGS+=(--model "${CLAUDE_MODEL}")
+-fi
+-
+-# Yolo mode is handled via managed-settings.json (permissions.allow all tools)
+-# instead of --dangerously-skip-permissions which is blocked when running as root.
+-
+-echo "Starting Claude Code..."
+-echo "Working directory: $(pwd)"
+-echo ""
+-
+-# Launch Claude Code
+-exec claude "${CLAUDE_ARGS[@]}"
+diff --git a/addon/rootfs/usr/bin/gemini-entrypoint.sh b/addon/rootfs/usr/bin/gemini-entrypoint.sh
+new file mode 100755
+index 0000000..3879d10
+--- /dev/null
++++ b/addon/rootfs/usr/bin/gemini-entrypoint.sh
+@@ -0,0 +1,90 @@
++# Claude Code Add-on: Claude entrypoint
++# Launches Claude Code with flags based on add-on configuration.
++# This runs inside tmux, spawned by ttyd.
++# ==============================================================================
++set -e
++
++# Source environment (written by init-claude)
++if [[ -f /etc/profile.d/claude.sh ]]; then
++    # shellcheck source=/dev/null
++    source /etc/profile.d/claude.sh
++fi
++
++# Build claude args
++declare -a CLAUDE_ARGS=()
++
++# Model selection
++if [[ -n "${CLAUDE_MODEL:-}" && "${CLAUDE_MODEL}" != "default" ]]; then
++    CLAUDE_ARGS+=(--model "${CLAUDE_MODEL}")
++fi
++
++# Yolo mode is handled via managed-settings.json (permissions.allow all tools)
++# instead of --dangerously-skip-permissions which is blocked when running as root.
++
++echo "Starting Claude Code..."
++echo "Working directory: $(pwd)"
++echo ""
++
++# Launch Claude Code
++exec claude "${CLAUDE_ARGS[@]}"
++=======
++#!/usr/bin/env bash
++# ==============================================================================
++# Gemini CLI Add-on: Gemini entrypoint
++# Launches Gemini CLI with flags based on add-on configuration.
++# This runs inside tmux, spawned by ttyd.
++# ==============================================================================
++set -e
++
++# Source environment (written by init-gemini)
++if [[ -f /etc/profile.d/gemini.sh ]]; then
++    # shellcheck source=/dev/null
++    source /etc/profile.d/gemini.sh
++fi
++
++# Build gemini args
++declare -a GEMINI_ARGS=()
++
++# Model selection
++if [[ -n "${GEMINI_MODEL:-}" && "${GEMINI_MODEL}" != "default" ]]; then
++    GEMINI_ARGS+=(--model "${GEMINI_MODEL}")
++fi
++
++# Yolo mode is handled via managed-settings.json (permissions.allow all tools)
++# instead of --dangerously-skip-permissions which is blocked when running as root.
++
++echo "Starting Gemini CLI..."
++echo "Working directory: $(pwd)"
++echo ""
++
++# Launch Gemini CLI
++exec gemini "${GEMINI_ARGS[@]}"==============================================================================
++# Claude Code Add-on: Claude entrypoint
++# Launches Claude Code with flags based on add-on configuration.
++# This runs inside tmux, spawned by ttyd.
++# ==============================================================================
++set -e
++
++# Source environment (written by init-claude)
++if [[ -f /etc/profile.d/claude.sh ]]; then
++    # shellcheck source=/dev/null
++    source /etc/profile.d/claude.sh
++fi
++
++# Build claude args
++declare -a CLAUDE_ARGS=()
++
++# Model selection
++if [[ -n "${CLAUDE_MODEL:-}" && "${CLAUDE_MODEL}" != "default" ]]; then
++    CLAUDE_ARGS+=(--model "${CLAUDE_MODEL}")
++fi
++
++# Yolo mode is handled via managed-settings.json (permissions.allow all tools)
++# instead of --dangerously-skip-permissions which is blocked when running as root.
++
++echo "Starting Claude Code..."
++echo "Working directory: $(pwd)"
++echo ""
++
++# Launch Claude Code
++exec claude "${CLAUDE_ARGS[@]}"
+diff --git a/project_info.md b/project_info.md
+new file mode 100644
+index 0000000..63c37b7
+--- /dev/null
++++ b/project_info.md
+@@ -0,0 +1,73 @@
++# Project Information: ha-gemini-cli
++
++## Overview
++This project is a fork of `hass-claude-code` and aims to integrate Gemini CLI with Home Assistant. It provides a web terminal, full API access, and structured tools for interacting with a smart home.
++
++## Key Files and Structure
++
++### Root Directory
++- **README.md**: Main documentation with installation and configuration details.
++- **addon/**: Contains the Home Assistant add-on configuration and source code.
++- **docs/**: Documentation files for Home Assistant.
++- **.claude/**: Legacy Claude-specific configurations and scripts.
++
++### Add-on Structure (`addon/`)
++- **config.yaml**: Home Assistant add-on manifest with configuration options.
++- **Dockerfile**: Multi-stage build for the add-on Docker image.
++- **build.yaml**: Base images per architecture.
++- **rootfs/**: Container filesystem overlay.
++  - **usr/bin/claude-entrypoint.sh**: Entry point script for the add-on.
++- **mcp-server/**: Node.js MCP server for interacting with Home Assistant.
++  - **src/**: TypeScript source files for the MCP server.
++    - `index.ts`: Main entry point for the MCP server.
++    - `ha-api.ts`: Home Assistant REST API tools.
++    - `ha-websocket.ts`: Home Assistant WebSocket API tools.
++    - `docs-search.ts`: Documentation search tools.
++    - `db.ts`, `search.ts`, `embeddings.ts`, `indexer.ts`: Search engine components.
++    - `build-index.ts`: Script to build the documentation search index.
++  - **package.json**: Node.js dependencies and scripts.
++
++### Configuration
++- **api_key**: Required Gemini API key.
++- **model**: Gemini model to use (default, flash, or pro).
++- **yolo_mode**: Skip permission prompts (default: false).
++- **enable_embeddings**: Enable semantic document search (default: false).
++- **additional_packages**: Extra Alpine packages to install.
++
++### MCP Tools
++The MCP server provides the following tools:
++1. `search_entities`: Search entities by name, domain, or area.
++2. `get_entity_state`: Get state and attributes of a specific entity.
++3. `call_service`: Call any HA service.
++4. `search_automations`: Search automation entities.
++5. `get_ha_config`: Get Home Assistant core configuration.
++6. `list_areas`: List all defined areas.
++7. `search_devices`: Search the device registry.
++8. `get_config_entries`: List integration config entries.
++9. `search_docs`: Search HA developer and user documentation.
++10. `read_doc`: Read a specific documentation file.
++11. `get_doc_stats`: Get documentation index statistics.
++
++### File Access
++The add-on has access to:
++- `/homeassistant/`: HA configuration directory (Read/Write).
++- `/config/`: Add-on configuration (Read/Write).
++- `/share/`: Shared storage between add-ons (Read/Write).
++- `/ssl/`: SSL certificates (Read-only).
++- `/media/`: Media files (Read-only).
++
++### Build Process
++1. Installs Node.js dependencies for the MCP server.
++2. Clones the HA documentation from the repository.
++3. Builds a keyword search index from the docs.
++4. Installs Gemini CLI, ttyd, tmux, and other tools.
++5. Sets up s6-overlay services for process management.
++
++### Supported Architectures
++- `amd64` (x86_64)
++- `aarch64` (ARM64, e.g., Raspberry Pi 4/5)
++
++## Notes
++- The project is a work in progress and not fully tested.
++- The Docker image is built locally on the device during installation.
++- The first install may take several minutes depending on hardware.
+-- 
+2.51.0
+

@@ -1,0 +1,28 @@
+From 2e6069651f494bc2a2ad158d0e6cb59581608a13 Mon Sep 17 00:00:00 2001
+From: dktzde <ha-gemini@unbox.at>
+Date: Fri, 27 Feb 2026 06:23:24 +0100
+Subject: [PATCH 2/2] Update CHANGELOG.md for version 0.11
+
+---
+ addon/CHANGELOG.md | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/addon/CHANGELOG.md b/addon/CHANGELOG.md
+index 0fd0d2d..a30c284 100644
+--- a/addon/CHANGELOG.md
++++ b/addon/CHANGELOG.md
+@@ -1,3 +1,11 @@
++## 0.11
++
++### 2024-02-26
++
++- Replaced all Claude Code references with Gemini CLI, ensuring full compatibility with the new AI model.
++- Updated configuration files, scripts, and documentation to reflect the transition to Gemini CLI.
++- This update was performed by Mistral Vibe using the devstral-2 model.
++
+ ## 0.1
+ 
+ ### Test Release 
+-- 
+2.51.0
+
